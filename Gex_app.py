@@ -8,6 +8,7 @@ import time
 
 # ===================== CẤU HÌNH =====================
 BASE_URL = "https://eapi.binance.com"
+PROXY = "https://api.allorigins.win/raw?url="  # Bỏ qua chặn mạng
 RISK_FREE_RATE = 0.045
 CONTRACT_MULTIPLIER = 1
 # =====================================================
@@ -23,66 +24,71 @@ def get_data():
     results = {}
 
     # =====================================================
-    # 💰 LẤY GIÁ XAUUSDT — ĐÚNG THEO TÀI LIỆU BINANCE: /eapi/v1/index
+    # 💰 LẤY GIÁ — ĐÚNG ĐƯỜNG /eapi/v1/index + QUA PROXY
     # =====================================================
     S = None
     sources_tried = []
 
-    # ✅ NGUỒN 1: Dùng đường /eapi/v1/index (CHÍNH XÁC theo tài liệu Binance)
-    try:
-        r = requests.get(f"{BASE_URL}/eapi/v1/index", params={"symbol": "XAUUSDT"}, timeout=15)
-        data = r.json()
-        if 'indexPrice' in data:
-            val = float(data['indexPrice'])
-            if 2000 < val < 5000:
-                S = val
-                sources_tried.append(f"✅ Binance Index API: {S}")
-    except Exception as e:
-        sources_tried.append(f"❌ Binance Index API: {str(e)[:60]}")
+    # ✅ NGUỒN 1: ĐÚNG đường API Binance + qua Proxy
+    if not S:
+        try:
+            url = f"{PROXY}{BASE_URL}/eapi/v1/index?symbol=XAUUSDT"
+            r = requests.get(url, timeout=25)
+            data = r.json()
+            if 'indexPrice' in data:
+                val = float(data['indexPrice'])
+                if 2000 < val < 5000:
+                    S = val
+                    sources_tried.append(f"✅ Binance Index API (Proxy): {S}")
+        except Exception as e:
+            sources_tried.append(f"❌ Binance Index API: {str(e)[:60]}")
 
     # ✅ NGUỒN 2: Dự phòng — Binance Spot API
     if not S:
         try:
-            r = requests.get("https://api.binance.com/api/v3/ticker/price", params={"symbol": "XAUUSDT"}, timeout=15)
+            url = f"{PROXY}https://api.binance.com/api/v3/ticker/price?symbol=XAUUSDT"
+            r = requests.get(url, timeout=25)
             data = r.json()
             if 'price' in data:
                 val = float(data['price'])
                 if 2000 < val < 5000:
                     S = val
-                    sources_tried.append(f"✅ Binance Spot API: {S}")
+                    sources_tried.append(f"✅ Binance Spot (Proxy): {S}")
         except Exception as e:
-            sources_tried.append(f"❌ Binance Spot API: {str(e)[:60]}")
+            sources_tried.append(f"❌ Binance Spot: {str(e)[:60]}")
 
     # ✅ NGUỒN 3: Dự phòng cuối — CoinGecko
     if not S:
         try:
-            r = requests.get("https://api.coingecko.com/api/v3/simple/price",
-                             params={"ids": "gold", "vs_currencies": "usd"}, timeout=15)
+            url = f"{PROXY}https://api.coingecko.com/api/v3/simple/price?ids=gold&vs_currencies=usd"
+            r = requests.get(url, timeout=25)
             data = r.json()
             if 'gold' in data and 'usd' in data['gold']:
                 val = float(data['gold']['usd'])
                 if 2000 < val < 5000:
                     S = val
-                    sources_tried.append(f"✅ CoinGecko: {S}")
+                    sources_tried.append(f"✅ CoinGecko (Proxy): {S}")
         except Exception as e:
             sources_tried.append(f"❌ CoinGecko: {str(e)[:60]}")
 
     # === KẾT QUẢ LẤY GIÁ ===
     if not S:
-        st.error("❌ Không lấy được giá từ bất kỳ nguồn nào!")
+        st.error("❌ Không lấy được giá!")
         with st.expander("🔎 Chi tiết các nguồn đã thử"):
             for s in sources_tried:
                 st.write(s)
+        st.info("💡 Mạng Streamlit bị chặn Binance → khuyến nghị chạy trên máy cá nhân")
         return None
 
     results['price'] = S
     results['sources_tried'] = sources_tried
 
     # =====================================================
-    # 📋 LẤY DANH SÁCH HỢP ĐỒNG QUYỀN CHỌN
+    # 📋 LẤY DANH SÁCH HỢP ĐỒNG — QUA PROXY
     # =====================================================
     try:
-        r = requests.get(f"{BASE_URL}/eapi/v1/exchangeInfo", timeout=20)
+        url = f"{PROXY}{BASE_URL}/eapi/v1/exchangeInfo"
+        r = requests.get(url, timeout=30)
         data = r.json()
         options = []
         for sym in data.get('optionSymbols', []):
@@ -103,7 +109,7 @@ def get_data():
         return None
 
     # =====================================================
-    # 📐 HÀM TÍNH GAMMA (Black-Scholes)
+    # 📐 HÀM TÍNH GAMMA
     # =====================================================
     def gamma(S, K, T, r, sigma):
         if T <= 0 or sigma <= 0:
@@ -115,7 +121,7 @@ def get_data():
             return 0.0
 
     # =====================================================
-    # 📊 TÍNH GEX TỪNG HỢP ĐỒNG
+    # 📊 TÍNH GEX TỪNG HỢP ĐỒNG — TẤT CẢ ĐI QUA PROXY
     # =====================================================
     current_ts = time.time()
     gex_list = []
@@ -126,18 +132,20 @@ def get_data():
         if T <= 0:
             continue
 
-        # Lấy MarkPrice + IV (đúng theo tài liệu: /eapi/v1/markPrice?symbol=HOP_DONG)
+        # Lấy MarkPrice + IV qua Proxy
         try:
-            mp = requests.get(f"{BASE_URL}/eapi/v1/markPrice", params={"symbol": opt['symbol']}, timeout=15).json()
+            url = f"{PROXY}{BASE_URL}/eapi/v1/markPrice?symbol={opt['symbol']}"
+            mp = requests.get(url, timeout=20).json()
             iv = float(mp.get('impliedVolatility', 0)) / 100.0
             if iv <= 0:
                 continue
         except:
             continue
 
-        # Lấy OI + thông tin khác (đúng theo tài liệu: /eapi/v1/ticker?symbol=HOP_DONG)
+        # Lấy OI qua Proxy
         try:
-            ticker = requests.get(f"{BASE_URL}/eapi/v1/ticker", params={"symbol": opt['symbol']}, timeout=15).json()
+            url = f"{PROXY}{BASE_URL}/eapi/v1/ticker?symbol={opt['symbol']}"
+            ticker = requests.get(url, timeout=20).json()
             oi_value = float(ticker.get('openInterest', 0))
             mk_price = float(ticker.get('markPrice', 0))
             oi_contracts = oi_value / mk_price if mk_price > 0 else 0
@@ -240,7 +248,7 @@ if data:
     st.dataframe(df_show, use_container_width=True)
 
     st.markdown("---")
-    st.caption(f"Nguồn: Binance Options API | Tự động cập nhật mỗi 5 phút | Hợp đồng: {data.get('options_count', 0)}")
+    st.caption(f"Nguồn: Binance Options API qua Proxy | Tự động cập nhật mỗi 5 phút | Hợp đồng: {data.get('options_count', 0)}")
 
 if st.button("🔄 Làm mới dữ liệu"):
     st.cache_data.clear()
