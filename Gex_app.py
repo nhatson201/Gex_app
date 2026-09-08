@@ -23,20 +23,6 @@ if "health" in query_params or os.environ.get("PATH", "").startswith("/health"):
     st.stop()
 
 st.title("📊 Gamma Exposure (GEX) — XAUUSDT Options")
-
-# === Thêm nút hướng dẫn cấu hình UptimeRobot ===
-with st.expander("🛠️ Hướng dẫn cấu hình UptimeRobot (Giữ App không bị ngủ 24/7)"):
-    st.markdown("""
-    **Để giữ app trên Render chạy liên tục không bị Sleep:**
-    1. Truy cập [UptimeRobot.com](https://uptimerobot.com/) và tạo **New Monitor**.
-    2. **Monitor Type:** Chọn `HTTP(s)`
-    3. **Friendly Name:** Đặt tên tùy ý (ví dụ: `GEX App KeepAlive`)
-    4. **URL:** Thêm tham số `?health=1` vào sau URL ứng dụng Render của bạn:
-       - Ví dụ: `https://ten-app-cua-ban.onrender.com/?health=1`
-    5. **Monitoring Interval:** Chọn `Every 5 minutes`
-    6. Nhấn **Create Monitor**.
-    """)
-
 st.markdown("---")
 
 # Cache dữ liệu 5 phút
