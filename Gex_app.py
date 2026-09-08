@@ -29,136 +29,101 @@ def get_data():
     results = {}
 
     # =====================================================
-    # 🔴 THỬ TẤT CẢ NGUỒN GIÁ CÓ THỂ — TỪ NHIỀU NỀN TẢNG
+    # 🔴 THỬ NGUỒN GIÁ — DÙNG API CORS/PROXY ĐỂ RENDER KHÔNG BỊ CHẶN
     # =====================================================
     S = None
     sources_tried = []
 
-    # === NGUỒN 1: Binance E-Options MarkPrice ===
-    try:
-        r = requests.get(f"{BASE_URL}/eapi/v1/markPrice", params={"symbol": "XAUUSDT"}, timeout=20)
-        data = r.json()
-        if 'markPrice' in data:
-            val = float(data['markPrice'])
-            if 2000 < val < 4000:
-                S = val
-                sources_tried.append(f"✅ Binance MarkPrice: {S}")
-    except Exception as e:
-        sources_tried.append(f"❌ Binance MarkPrice: {str(e)[:60]}")
-
-    # === NGUỒN 2: Binance Spot API ===
+    # === NGUỒN 1: Binance qua CORS Proxy (Render không chặn) ===
     if not S:
         try:
-            r = requests.get("https://api.binance.com/api/v3/ticker/price", params={"symbol": "XAUUSDT"}, timeout=20)
+            url = "https://api.allorigins.win/raw?url=https://api.binance.com/api/v3/ticker/price?symbol=XAUUSDT"
+            r = requests.get(url, timeout=25)
             data = r.json()
             if 'price' in data:
                 val = float(data['price'])
                 if 2000 < val < 4000:
                     S = val
-                    sources_tried.append(f"✅ Binance Spot: {S}")
+                    sources_tried.append(f"✅ Binance (Proxy): {S}")
         except Exception as e:
-            sources_tried.append(f"❌ Binance Spot: {str(e)[:60]}")
+            sources_tried.append(f"❌ Binance Proxy: {str(e)[:60]}")
 
-    # === NGUỒN 3: Binance API thay thế (dùng alias khác) ===
+    # === NGUỒN 2: CoinGecko qua CORS Proxy ===
     if not S:
         try:
-            r = requests.get("https://api.binance.com/api/v3/ticker/price", params={"symbol": "XAUUSD"}, timeout=20)
-            data = r.json()
-            if 'price' in data:
-                val = float(data['price'])
-                if 2000 < val < 4000:
-                    S = val
-                    sources_tried.append(f"✅ Binance XAUUSD: {S}")
-        except Exception as e:
-            sources_tried.append(f"❌ Binance XAUUSD: {str(e)[:60]}")
-
-    # === NGUỒN 4: CoinGecko ===
-    if not S:
-        try:
-            r = requests.get("https://api.coingecko.com/api/v3/simple/price",
-                             params={"ids": "gold", "vs_currencies": "usd"}, timeout=20)
+            url = "https://api.allorigins.win/raw?url=https://api.coingecko.com/api/v3/simple/price?ids=gold&vs_currencies=usd"
+            r = requests.get(url, timeout=25)
             data = r.json()
             if 'gold' in data and 'usd' in data['gold']:
                 val = float(data['gold']['usd'])
                 if 2000 < val < 4000:
                     S = val
-                    sources_tried.append(f"✅ CoinGecko: {S}")
+                    sources_tried.append(f"✅ CoinGecko (Proxy): {S}")
         except Exception as e:
-            sources_tried.append(f"❌ CoinGecko: {str(e)[:60]}")
+            sources_tried.append(f"❌ CoinGecko Proxy: {str(e)[:60]}")
 
-    # === NGUỒN 5: Metals-API (miễn phí) ===
+    # === NGUỒN 3: API Binance E-Options qua Proxy ===
     if not S:
         try:
-            r = requests.get("https://api.metals.live/v1/spot/gold", timeout=20)
+            url = "https://api.allorigins.win/raw?url=https://eapi.binance.com/eapi/v1/markPrice?symbol=XAUUSDT"
+            r = requests.get(url, timeout=25)
             data = r.json()
-            if isinstance(data, list) and len(data) > 0 and 'price' in data[0]:
-                val = float(data[0]['price'])
+            if 'markPrice' in data:
+                val = float(data['markPrice'])
                 if 2000 < val < 4000:
                     S = val
-                    sources_tried.append(f"✅ Metals.live: {S}")
+                    sources_tried.append(f"✅ Binance E-Options (Proxy): {S}")
         except Exception as e:
-            sources_tried.append(f"❌ Metals.live: {str(e)[:60]}")
+            sources_tried.append(f"❌ Binance E-Options Proxy: {str(e)[:60]}")
 
-    # === NGUỒN 6: API Nền tảng khác — TwelveData ===
+    # === NGUỒN 4: API thay thế — Forex ===
     if not S:
         try:
-            r = requests.get("https://api.twelvedata.com/price",
-                             params={"symbol": "XAU/USD", "apikey": "demo"}, timeout=20)
-            data = r.json()
-            if 'price' in data:
-                val = float(data['price'])
-                if 2000 < val < 4000:
-                    S = val
-                    sources_tried.append(f"✅ TwelveData: {S}")
-        except Exception as e:
-            sources_tried.append(f"❌ TwelveData: {str(e)[:60]}")
-
-    # === NGUỒN 7: Forex API ===
-    if not S:
-        try:
-            r = requests.get("https://www.freeforexapi.com/api/live",
-                             params={"pairs": "XAUUSD"}, timeout=20)
+            url = "https://api.allorigins.win/raw?url=https://www.freeforexapi.com/api/live?pairs=XAUUSD"
+            r = requests.get(url, timeout=25)
             data = r.json()
             if 'rates' in data and 'XAUUSD' in data['rates']:
                 val = float(data['rates']['XAUUSD']['rate'])
                 if 2000 < val < 4000:
                     S = val
-                    sources_tried.append(f"✅ FreeForexAPI: {S}")
+                    sources_tried.append(f"✅ FreeForexAPI (Proxy): {S}")
         except Exception as e:
-            sources_tried.append(f"❌ FreeForexAPI: {str(e)[:60]}")
+            sources_tried.append(f"❌ FreeForexAPI Proxy: {str(e)[:60]}")
 
-    # === NGUỒN 8: FastForex API ===
+    # === NGUỒN 5: Dự phòng cuối cùng — giá cố định tham khảo ===
     if not S:
         try:
-            r = requests.get("https://api.fastforex.io/fetch-one",
-                             params={"from": "XAU", "to": "USD", "api_key": "demo"}, timeout=20)
+            url = "https://api.allorigins.win/raw?url=https://data-asg.goldprice.org/dbXRates/USD"
+            r = requests.get(url, timeout=25)
             data = r.json()
-            if 'result' in data and 'USD' in data['result']:
-                val = float(data['result']['USD'])
+            if 'items' in data and len(data['items']) > 0 and 'xauPrice' in data['items'][0]:
+                val = float(data['items'][0]['xauPrice'])
                 if 2000 < val < 4000:
                     S = val
-                    sources_tried.append(f"✅ FastForex: {S}")
+                    sources_tried.append(f"✅ Goldprice.org (Proxy): {S}")
         except Exception as e:
-            sources_tried.append(f"❌ FastForex: {str(e)[:60]}")
+            sources_tried.append(f"❌ Goldprice.org Proxy: {str(e)[:60]}")
 
     # === KẾT QUẢ LẤY GIÁ ===
     if not S:
-        st.error("❌ KHÔNG LẤY ĐƯỢC GIÁ TỪ BẤT KỲ NGUỒN NÀO!")
-        with st.expander("Xem chi tiết các nguồn đã thử"):
+        st.error("❌ KHÔNG LẤY ĐƯỢC GIÁ! Render bị chặn kết nối ra ngoài.")
+        with st.expander("🔎 Xem chi tiết các nguồn đã thử"):
             for s in sources_tried:
                 st.write(s)
+        st.info("💡 Giải pháp: Dùng Streamlit Cloud thay vì Render — không bị chặn API!")
         return None
 
     results['price'] = S
     results['sources_tried'] = sources_tried
 
     # =====================================================
-    # ✅ LẤY DANH SÁCH HỢP ĐỒNG QUYỀN CHỌN BINANCE
+    # ✅ LẤY DANH SÁCH HỢP ĐỒNG QUYỀN CHỌN — QUA PROXY
     # =====================================================
+    options = []
     try:
-        r = requests.get(f"{BASE_URL}/eapi/v1/exchangeInfo", timeout=20)
+        url = "https://api.allorigins.win/raw?url=https://eapi.binance.com/eapi/v1/exchangeInfo"
+        r = requests.get(url, timeout=30)
         data = r.json()
-        options = []
         for sym in data.get('optionSymbols', []):
             if sym.get('underlying') == "XAUUSDT" and sym.get('status') == 'TRADING':
                 options.append({
@@ -189,7 +154,7 @@ def get_data():
             return 0.0
 
     # =====================================================
-    # ✅ LẤY DỮ LIỆU TỪNG HỢP ĐỒNG & TÍNH GEX
+    # ✅ LẤY DỮ LIỆU TỪNG HỢP ĐỒNG & TÍNH GEX — QUA PROXY
     # =====================================================
     current_ts = time.time()
     gex_list = []
@@ -200,18 +165,18 @@ def get_data():
         if T <= 0:
             continue
 
-        # Lấy MarkPrice, IV
         try:
-            mp = requests.get(f"{BASE_URL}/eapi/v1/markPrice", params={"symbol": opt['symbol']}, timeout=15).json()
+            url = f"https://api.allorigins.win/raw?url=https://eapi.binance.com/eapi/v1/markPrice?symbol={opt['symbol']}"
+            mp = requests.get(url, timeout=20).json()
             iv = float(mp.get('impliedVolatility', 0)) / 100.0
             if iv <= 0:
                 continue
         except:
             continue
 
-        # Lấy OI
         try:
-            ticker = requests.get(f"{BASE_URL}/eapi/v1/ticker", params={"symbol": opt['symbol']}, timeout=15).json()
+            url = f"https://api.allorigins.win/raw?url=https://eapi.binance.com/eapi/v1/ticker?symbol={opt['symbol']}"
+            ticker = requests.get(url, timeout=20).json()
             oi_value = float(ticker.get('openInterest', 0))
             mk_price = float(ticker.get('markPrice', 0))
             oi_contracts = oi_value / mk_price if mk_price > 0 else 0
@@ -221,7 +186,6 @@ def get_data():
         if oi_contracts <= 0:
             continue
 
-        # Tính GEX
         g = gamma(S, opt['strike'], T, RISK_FREE_RATE, iv)
         mult = opt.get('multiplier', CONTRACT_MULTIPLIER)
         if opt['type'] == 'CALL':
@@ -278,7 +242,6 @@ data = get_data()
 if data:
     st.subheader(f"🕒 Cập nhật: {data['update_time']}")
     
-    # Hiển thị nguồn giá đã lấy được
     if 'sources_tried' in data:
         with st.expander("🔎 Xem các nguồn giá đã thử"):
             for s in data['sources_tried']:
@@ -315,9 +278,8 @@ if data:
     st.dataframe(df_show, use_container_width=True)
 
     st.markdown("---")
-    st.caption(f"Nguồn: Binance Options | Tự động cập nhật mỗi 5 phút | Hợp đồng: {data.get('options_count', 0)}")
+    st.caption(f"Nguồn: Binance Options qua Proxy | Tự động cập nhật mỗi 5 phút | Hợp đồng: {data.get('options_count', 0)}")
 
-# Nút làm mới dữ liệu
 if st.button("🔄 Làm mới dữ liệu"):
     st.cache_data.clear()
     st.rerun()
