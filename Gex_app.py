@@ -23,37 +23,37 @@ def get_data():
     results = {}
 
     # =====================================================
-    # 💰 LẤY GIÁ XAUUSDT — Thử nhiều nguồn trực tiếp
+    # 💰 LẤY GIÁ XAUUSDT — ĐÚNG THEO TÀI LIỆU BINANCE: /eapi/v1/index
     # =====================================================
     S = None
     sources_tried = []
 
-    # Nguồn 1: Binance E-Options MarkPrice
+    # ✅ NGUỒN 1: Dùng đường /eapi/v1/index (CHÍNH XÁC theo tài liệu Binance)
     try:
-        r = requests.get(f"{BASE_URL}/eapi/v1/markPrice", params={"symbol": "XAUUSDT"}, timeout=15)
+        r = requests.get(f"{BASE_URL}/eapi/v1/index", params={"symbol": "XAUUSDT"}, timeout=15)
         data = r.json()
-        if 'markPrice' in data:
-            val = float(data['markPrice'])
-            if 2000 < val < 4000:
+        if 'indexPrice' in data:
+            val = float(data['indexPrice'])
+            if 2000 < val < 5000:
                 S = val
-                sources_tried.append(f"✅ Binance MarkPrice: {S}")
+                sources_tried.append(f"✅ Binance Index API: {S}")
     except Exception as e:
-        sources_tried.append(f"❌ Binance MarkPrice: {str(e)[:60]}")
+        sources_tried.append(f"❌ Binance Index API: {str(e)[:60]}")
 
-    # Nguồn 2: Binance Spot API
+    # ✅ NGUỒN 2: Dự phòng — Binance Spot API
     if not S:
         try:
             r = requests.get("https://api.binance.com/api/v3/ticker/price", params={"symbol": "XAUUSDT"}, timeout=15)
             data = r.json()
             if 'price' in data:
                 val = float(data['price'])
-                if 2000 < val < 4000:
+                if 2000 < val < 5000:
                     S = val
-                    sources_tried.append(f"✅ Binance Spot: {S}")
+                    sources_tried.append(f"✅ Binance Spot API: {S}")
         except Exception as e:
-            sources_tried.append(f"❌ Binance Spot: {str(e)[:60]}")
+            sources_tried.append(f"❌ Binance Spot API: {str(e)[:60]}")
 
-    # Nguồn 3: CoinGecko dự phòng
+    # ✅ NGUỒN 3: Dự phòng cuối — CoinGecko
     if not S:
         try:
             r = requests.get("https://api.coingecko.com/api/v3/simple/price",
@@ -61,13 +61,13 @@ def get_data():
             data = r.json()
             if 'gold' in data and 'usd' in data['gold']:
                 val = float(data['gold']['usd'])
-                if 2000 < val < 4000:
+                if 2000 < val < 5000:
                     S = val
                     sources_tried.append(f"✅ CoinGecko: {S}")
         except Exception as e:
             sources_tried.append(f"❌ CoinGecko: {str(e)[:60]}")
 
-    # === Kết quả lấy giá ===
+    # === KẾT QUẢ LẤY GIÁ ===
     if not S:
         st.error("❌ Không lấy được giá từ bất kỳ nguồn nào!")
         with st.expander("🔎 Chi tiết các nguồn đã thử"):
@@ -126,7 +126,7 @@ def get_data():
         if T <= 0:
             continue
 
-        # Lấy MarkPrice & IV
+        # Lấy MarkPrice + IV (đúng theo tài liệu: /eapi/v1/markPrice?symbol=HOP_DONG)
         try:
             mp = requests.get(f"{BASE_URL}/eapi/v1/markPrice", params={"symbol": opt['symbol']}, timeout=15).json()
             iv = float(mp.get('impliedVolatility', 0)) / 100.0
@@ -135,7 +135,7 @@ def get_data():
         except:
             continue
 
-        # Lấy Open Interest
+        # Lấy OI + thông tin khác (đúng theo tài liệu: /eapi/v1/ticker?symbol=HOP_DONG)
         try:
             ticker = requests.get(f"{BASE_URL}/eapi/v1/ticker", params={"symbol": opt['symbol']}, timeout=15).json()
             oi_value = float(ticker.get('openInterest', 0))
@@ -240,7 +240,7 @@ if data:
     st.dataframe(df_show, use_container_width=True)
 
     st.markdown("---")
-    st.caption(f"Nguồn: Binance Options | Tự động cập nhật mỗi 5 phút | Hợp đồng: {data.get('options_count', 0)}")
+    st.caption(f"Nguồn: Binance Options API | Tự động cập nhật mỗi 5 phút | Hợp đồng: {data.get('options_count', 0)}")
 
 if st.button("🔄 Làm mới dữ liệu"):
     st.cache_data.clear()
